@@ -1,0 +1,61 @@
+version: "3.8"
+
+services:
+  influxdb:
+    image: influxdb:1.8-alpine
+    container_name: influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      - INFLUXDB_DB=weatherdb
+      - INFLUXDB_HTTP_AUTH_ENABLED=false
+    volumes:
+      - influxdb_data:/var/lib/influxdb
+    networks:
+      - backend
+
+  telegraf:
+    image: telegraf:1.25
+    container_name: telegraf
+    depends_on:
+      - influxdb
+    volumes:
+      - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+    networks:
+      - backend
+
+  python_etl:
+    build:
+      context: ./python_etl
+    container_name: python_etl
+    depends_on:
+      - influxdb
+    environment:
+      - INFLUX_HOST=influxdb
+      - INFLUX_PORT=8086
+      - INFLUX_DB=weatherdb
+      - OPENWEATHER_API_KEY=31c5aba170019b253c8050594c7493ed
+    networks:
+      - backend
+
+  grafana:
+    image: grafana/grafana-oss:9.3.2
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - influxdb
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - backend
+
+volumes:
+  influxdb_data:
+  grafana_data:
+
+networks:
+  backend:
